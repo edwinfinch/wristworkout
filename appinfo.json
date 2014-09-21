@@ -1,0 +1,64 @@
+{
+    "appKeys": {
+        "accelservice": 7,
+        "enabled": 6,
+        "goal": 4,
+        "length": 5,
+        "name": 2,
+        "number": 0,
+        "other": 3,
+        "type": 1
+    },
+    "capabilities": [
+        "configurable"
+    ],
+    "companyName": "Edwin && Jevin",
+    "longName": "WristWorkOut",
+    "projectType": "native",
+    "resources": {
+        "media": [
+            {
+                "file": "images/checkmark.png",
+                "name": "IMAGE_CHECKMARK",
+                "type": "png"
+            },
+            {
+                "file": "images/stop.png",
+                "name": "IMAGE_STOP",
+                "type": "png"
+            },
+            {
+                "file": "images/restart.png",
+                "name": "IMAGE_RESTART",
+                "type": "png"
+            },
+            {
+                "file": "images/arrow_previous.png",
+                "name": "IMAGE_PREVIOUS_ICON",
+                "type": "png"
+            },
+            {
+                "file": "images/arrow_next.png",
+                "name": "IMAGE_NEXT_ICON",
+                "type": "png"
+            },
+            {
+                "file": "images/pause.png",
+                "name": "IMAGE_PAUSE_ICON",
+                "type": "png"
+            },
+            {
+                "file": "images/play.png",
+                "name": "IMAGE_PLAY_ICON",
+                "type": "png"
+            }
+        ]
+    },
+    "shortName": "WristWorkOut",
+    "uuid": "525690c8-27f7-491a-b11a-e1d818b03a76",
+    "versionCode": 1,
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": false
+    }
+}
