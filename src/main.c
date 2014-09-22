@@ -11,39 +11,44 @@
 #define ITEMS_NUM 9
 	
 Window *activity_window;
+AppTimer *send_timer;
 SimpleMenuSection ACTV_section[SECTION_NUM];
 SimpleMenuItem ACTV_menu_items[ITEMS_NUM];
 SimpleMenuLayer *activity_menu;
+
+static char t_buffer[10][10];
+static char buffer[10][25] = {
+	"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"
+};
+
+char *data_types_temp[4] = {
+	"steps", "mins", "motions", "motions"
+};
 
 void refresh_menu(){
 	for(int i = 0; i < 9; i++){
 		Activity temp_r = get_activity(i);
 		if(temp_r.enabled){
-			static char t_buffer[11];
-			snprintf(t_buffer, sizeof(t_buffer), "%s", temp_r.name);
-			ACTV_menu_items[i].title = t_buffer;
-			static char buffer[] = "Goal of 9000001";
-			snprintf(buffer, sizeof(buffer), "Goal of %d", temp_r.goal);
-			ACTV_menu_items[i].subtitle = buffer;
+			strncpy(t_buffer[i], temp_r.name, sizeof(t_buffer[i]));
+			ACTV_menu_items[i].title = t_buffer[i];
+			snprintf(buffer[i], sizeof(buffer[i]), "Goal of %d %s", temp_r.goal, data_types_temp[temp_r.data_type]);
+			ACTV_menu_items[i].subtitle = buffer[i];
 		}
 	}
+	layer_mark_dirty(simple_menu_layer_get_layer(activity_menu));
 }
 
 void activity_callback(int index, void *ctx){
+	Activity temp1 = get_activity(index);
+	if(temp1.enabled != true){
+		return;
+	}
 	launch_activity(index);
 }
 
 void window_load_activity(Window *w){
 	Layer *window_layer = window_get_root_layer(w);
 	int i = 0;
-	
-	/*
-	Activity temp_y;
-	temp_y.enabled = true;
-	strncpy(temp_y.name, "Your mom", 10);
-	temp_y.goal = 666;
-	activity_copy(2, temp_y);
-	*/
 	
 	while(i < ITEMS_NUM){
 		ACTV_menu_items[i] = (SimpleMenuItem){
@@ -64,6 +69,8 @@ void window_load_activity(Window *w){
 	refresh_menu();
 	
 	animate_layer(simple_menu_layer_get_layer(activity_menu), &GRect(0, 400, 144, 154), &GRect(0, 0, 144, 154), 700, 0);
+	
+	send_timer = app_timer_register(3000, send_message_to_js, NULL);
 }
 
 void window_unload_activity(Window *w){
@@ -80,7 +87,6 @@ void init(){
 	stop_window_init();
 	ACTV_window_init();
 	app_message_register_inbox_received(rec_handler_jsfw);
-	tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
 	app_message_open(512, 512);
 	window_stack_push(activity_window, true);
 }

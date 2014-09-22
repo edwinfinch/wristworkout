@@ -18,17 +18,25 @@ Activity temp_ACTV;
 ActionBarLayer *ACTV_ab;
 Layer *ACTV_bgelmnts;
 TextLayer *ACTV_title, *ACTV_data_t_1, *ACTV_data_t_2, *ACTV_data_1, *ACTV_data_2;
-TextLayer *ACTV_other_t, *ACTV_other, *ACTV_time;
+TextLayer *ACTV_other_t, *ACTV_other, *ACTV_time, *goal_reached;
 GBitmap *previous_i, *next_i, *pause_i, *play_i, *stop_i, *restart_i;
 InverterLayer *ACTV_selector;
 bool isactive = false;
+bool goal_reached_session = false;
 
-char *data_types[3] = {
-	"Steps", "Weight", "Time"
+char *data_types[4] = {
+	"steps", "mins", "motions", "motions"
 };
-char *weight_data_units[2] = {
-	"kg", "lbs",
-};
+
+void goal_reached_fire(){
+	if(goal_reached_session){
+		return;
+	}
+	vibes_long_pulse();
+	animate_layer(text_layer_get_layer(goal_reached), &GRect(0, 0, 144, 0), &GRect(0, 0, 144, 168), 700, 0);
+	animate_layer(text_layer_get_layer(goal_reached), &GRect(0, 0, 144, 168), &GRect(0, 0, 144, 0), 700, 7000);
+	goal_reached_session = true;
+}
 
 void reset_timedata(){
 	Timedata.sec = 0;
@@ -67,20 +75,39 @@ void tick_handler(struct tm *t, TimeUnits units){
 		}
 		text_layer_set_text(ACTV_time, buffer);
 	}
-	/*
-	if(temp_ACTV.type == 0){
-		static char steps_buffer[] = "1337...";
-		get_steps();
-	}*/
 	if(isactive){
-		static char steps_buffer[] = "1337...";
-		snprintf(steps_buffer, sizeof(steps_buffer), "%d", get_motions());
-		text_layer_set_text(ACTV_data_1, steps_buffer);
-		
+		int goal_t = -666;
+		if(temp_ACTV.data_type == 0){
+			static char steps_buffer[] = "1337...";
+			snprintf(steps_buffer, sizeof(steps_buffer), "%d", get_steps());
+			text_layer_set_text(ACTV_data_1, steps_buffer);
+			text_layer_set_text(ACTV_data_t_1, "Steps");
+			if(temp_ACTV.goal == get_steps()){
+				goal_reached_fire();
+		    }
+		}
+		else if(temp_ACTV.data_type == 1){
+			static char minutes_buffer[] = "1337...";
+			snprintf(minutes_buffer, sizeof(minutes_buffer), "%d", Timedata.min+(Timedata.hour*60));
+			text_layer_set_text(ACTV_data_1, minutes_buffer);
+			text_layer_set_text(ACTV_data_t_1, "Minutes");
+			if(temp_ACTV.goal == Timedata.min+(Timedata.hour*60)){
+				goal_reached_fire();
+		    }
+		}
+		else{
+			static char motions_buffer[] = "1337...";
+			snprintf(motions_buffer, sizeof(motions_buffer), "%d", get_motions());
+			text_layer_set_text(ACTV_data_1, motions_buffer);
+			text_layer_set_text(ACTV_data_t_1, "Motions");
+			if(temp_ACTV.goal == get_motions()){
+				goal_reached_fire();
+		    }
+		}
 		static char goal_buffer[] = "1337...";
 		snprintf(goal_buffer, sizeof(goal_buffer), "%d", temp_ACTV.goal);
 		text_layer_set_text(ACTV_data_2, goal_buffer);
-		
+			
 		layer_mark_dirty(ACTV_bgelmnts);
 	}
 }
@@ -113,6 +140,9 @@ TextLayer* text_layer_init(GRect location, GTextAlignment alignment, int font)
 
 void launch_activity(int activity){
 	temp_ACTV = get_activity(activity);
+	temp_ACTV.used++;
+	activity_copy_alt(activity, temp_ACTV);
+	used_stack_push(activity);
 	window_stack_push(ACTV_window, true);
 }
 
@@ -136,6 +166,7 @@ void ACTV_restart(ClickRecognizerRef recognizer, void *context){
 	reset_timedata();
 	reset_motions();
 	layer_mark_dirty(ACTV_bgelmnts);
+	goal_reached_session = false;
 }
 
 void click_config_ACTV(void *contx){
@@ -147,9 +178,18 @@ void click_config_ACTV(void *contx){
 
 void bgelmnts_proc(Layer *l, GContext *ctx){
 	graphics_fill_rect(ctx, GRect(7, 120, 110, 42), 4, GCornersAll);
-	float steps = (float)get_motions();
-	float fix = ((steps/temp_ACTV.goal)*144);
-	//APP_LOG(APP_LOG_LEVEL_DEBUG, "fix: %d", fix);
+	float fix_pre = 0.0;
+	//I still like you switch statements I'm just not using you here
+	if(temp_ACTV.data_type == 0){
+		fix_pre = (float)get_steps();
+	}
+	else if(temp_ACTV.data_type == 1){
+		fix_pre = Timedata.min+(Timedata.hour/60);
+	}
+	else{
+		fix_pre = (float)get_motions();
+	}
+	float fix = ((fix_pre/temp_ACTV.goal)*144);
 	graphics_fill_rect(ctx, GRect(0, 0, fix, 3), 0, GCornerNone);
 }
 
@@ -158,10 +198,12 @@ void window_load_ACTV(Window *w){
 	
 	GRect t_rect = GRect(0, -150, 144, 168);
 	
-	temp_ACTV.goal = 350;
-	
-	//register_pedometer();
-	start_motions_pedometer_service();
+	if(temp_ACTV.data_type == 0){	
+		register_pedometer();
+	}
+	else{
+		start_motions_pedometer_service();
+	}
 	tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
 	
 	next_i = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_NEXT_ICON);
@@ -183,7 +225,7 @@ void window_load_ACTV(Window *w){
 	layer_add_child(window_layer, ACTV_bgelmnts);
 	
 	ACTV_other_t = text_layer_init(t_rect, GTextAlignmentLeft, 0);
-	text_layer_set_text(ACTV_other_t, "Other");
+	text_layer_set_text(ACTV_other_t, "Other/Notes");
 	layer_add_child(window_layer, text_layer_get_layer(ACTV_other_t));
 	
 	ACTV_data_t_1 = text_layer_init(t_rect, GTextAlignmentLeft, 0);
@@ -203,11 +245,11 @@ void window_load_ACTV(Window *w){
 	layer_add_child(window_layer, text_layer_get_layer(ACTV_data_2));
 	
 	ACTV_title = text_layer_init(t_rect, GTextAlignmentLeft, 2);
-	text_layer_set_text(ACTV_title, "General");
+	text_layer_set_text(ACTV_title, temp_ACTV.name);
 	layer_add_child(window_layer, text_layer_get_layer(ACTV_title));
 	
 	ACTV_other = text_layer_init(t_rect, GTextAlignmentLeft, 3);
-	text_layer_set_text(ACTV_other, "Keep moving!"); //17 char limit
+	text_layer_set_text(ACTV_other, temp_ACTV.other); //17 char limit
 	layer_add_child(window_layer, text_layer_get_layer(ACTV_other));
 	
 	ACTV_time = text_layer_init(t_rect, GTextAlignmentCenter, 4);
@@ -215,6 +257,12 @@ void window_load_ACTV(Window *w){
 	text_layer_set_text_color(ACTV_time, GColorWhite);
 	layer_add_child(window_layer, text_layer_get_layer(ACTV_time));
 	
+	goal_reached = text_layer_init(GRect(0, 0, 144, 0), GTextAlignmentCenter, 4);
+	text_layer_set_text(goal_reached, "You reached your goal! :)");
+	text_layer_set_text_color(goal_reached, GColorWhite);
+	text_layer_set_background_color(goal_reached, GColorBlack);
+	layer_add_child(window_layer, text_layer_get_layer(goal_reached));
+		
 	isactive = true;
 	pedometer_override(true);
 	animate_layer(text_layer_get_layer(ACTV_title), &t_rect, &GRect(7, 0, 144, 36), 600, 50);
@@ -226,10 +274,6 @@ void window_load_ACTV(Window *w){
 	animate_layer(text_layer_get_layer(ACTV_other), &t_rect, &GRect(7, 97, 144, 36), 600, 350);
 	animate_layer(text_layer_get_layer(ACTV_time), &GRect(12, 400, 100, 36), &GRect(-10, 122, 140, 36), 600, 400);
 	
-	/*
-	TextLayer *ACTV_title, *ACTV_data_t_1, *ACTV_data_t_2, *ACTV_data_1, *ACTV_data_2;
-TextLayer *ACTV_other_t, *ACTV_other, *ACTV_time;
-	*/
 	struct tm *t;
   	time_t temp;        
   	temp = time(NULL);        
@@ -251,6 +295,7 @@ void window_unload_ACTV(Window *w){
 	text_layer_destroy(ACTV_other_t);
 	text_layer_destroy(ACTV_other);
 	text_layer_destroy(ACTV_time);
+	text_layer_destroy(goal_reached);
 	//text_layer_destroy(ACTV_subtitle);
 	action_bar_layer_destroy(ACTV_ab);
 	isactive = false;
@@ -260,7 +305,7 @@ void window_unload_ACTV(Window *w){
 	accel_data_service_unsubscribe();
 	reset_timedata();
 	reset_motions();
-	
+	goal_reached_session = false;
 	/*
 	TextLayer *ACTV_title, *ACTV_data_t_1, *ACTV_data_t_2, *ACTV_data_1, *ACTV_data_2;
 	TextLayer *ACTV_other_t, *ACTV_other, *ACTV_time, *ACTV_subtitle;
