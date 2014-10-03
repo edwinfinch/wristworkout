@@ -64,7 +64,7 @@ void process_tuple(Tuple *t)
 			number_to_cpy = (uint8_t)value-1;
 			break;
 		case 1:
-		APP_LOG(APP_LOG_LEVEL_INFO, "%d vl", value);
+			APP_LOG(APP_LOG_LEVEL_INFO, "%d vl", value);
 			temp->data_type = value;
 			break;
 		case 2:
